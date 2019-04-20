@@ -1,69 +1,192 @@
 /**
- * The update quality function
- * @example
- * updateQuality([
- *   { name: "+5 Dexterity Vest", sellIn: 10, quality: 20 },
- *   { name: "Aged Brie", sellIn: 2, quality: 0 },
- *   { name: "Elixir of the Mongoose", sellIn: 5, quality: 7 },
- *   { name: "Sulfuras, Hand of Ragnaros", sellIn: 0, quality: 80 },
- *   {
- *     name: "Backstage passes to a TAFKAL80ETC concert",
- *     sellIn: 15,
- *     quality: 20
- *   },
- *   { name: "Conjured Mana Cake", sellIn: 3, quality: 6 }
- * ]);
+ * @typedef {Object} itemData
+ * @property {string} name
+ * @property {number} sellIn
+ * @property {number} quality
  */
 
-module.exports = function updateQuality(items) {
-  for (var i = 0; i < items.length; i++) {
-    if (
-      items[i].name != "Aged Brie" &&
-      items[i].name != "Backstage passes to a TAFKAL80ETC concert"
-    ) {
-      if (items[i].quality > 0) {
-        if (items[i].name != "Sulfuras, Hand of Ragnaros") {
-          items[i].quality = items[i].quality - 1;
-        }
-      }
-    } else {
-      if (items[i].quality < 50) {
-        items[i].quality = items[i].quality + 1;
-        if (items[i].name == "Backstage passes to a TAFKAL80ETC concert") {
-          if (items[i].sellIn < 11) {
-            if (items[i].quality < 50) {
-              items[i].quality = items[i].quality + 1;
-            }
-          }
-          if (items[i].sellIn < 6) {
-            if (items[i].quality < 50) {
-              items[i].quality = items[i].quality + 1;
-            }
-          }
-        }
-      }
-    }
-    if (items[i].name != "Sulfuras, Hand of Ragnaros") {
-      items[i].sellIn = items[i].sellIn - 1;
-    }
-    if (items[i].sellIn < 0) {
-      if (items[i].name != "Aged Brie") {
-        if (items[i].name != "Backstage passes to a TAFKAL80ETC concert") {
-          if (items[i].quality > 0) {
-            if (items[i].name != "Sulfuras, Hand of Ragnaros") {
-              items[i].quality = items[i].quality - 1;
-            }
-          }
-        } else {
-          items[i].quality = items[i].quality - items[i].quality;
-        }
-      } else {
-        if (items[i].quality < 50) {
-          items[i].quality = items[i].quality + 1;
-        }
-      }
-    }
+const MIN_QUALITY = 0;
+const MAX_QUALITY = 50;
+
+const CONJURED_PREFIX = "Conjured ";
+const CONJURED_RE = new RegExp("^" + CONJURED_PREFIX);
+
+const AGED_BRIE_TITLE = "Aged Brie";
+const SULFURAS_TITLE = "Sulfuras, Hand of Ragnaros";
+const BACKSTAGE_PASS_TITLE = "Backstage passes to a TAFKAL80ETC concert";
+
+/**
+ * Helper that creates RegExp for check of item type, regardless of it being conjured or not.
+ * @param {string} itemName
+ * @returns {RegExp}
+ */
+function constructItemRe (itemName) {
+  return new RegExp("^(" + CONJURED_PREFIX + ")?" + itemName + "$");
+}
+
+/**
+ * Checks whether item is of conjured type.
+ * @param {itemData} item
+ * @returns {boolean}
+ */
+function isItemConjured ({ name }) {
+  return CONJURED_RE.test(name);
+}
+
+/**
+ * Checks whether item is aged brie.
+ * @param {itemData} item
+ * @returns {boolean}
+ */
+function isAgedBrie ({ name }) {
+  return constructItemRe(AGED_BRIE_TITLE).test(name);
+}
+
+/**
+ * Checks whether item is Sulfuras.
+ * @param {itemData} item
+ * @returns {boolean}
+ */
+function isSulfuras ({ name }) {
+  return constructItemRe(SULFURAS_TITLE).test(name);
+}
+
+/**
+ * Checks whether item is backstage pass.
+ * @param {itemData} item
+ * @returns {boolean}
+ */
+function isBackstagePass ({ name }) {
+  return constructItemRe(BACKSTAGE_PASS_TITLE).test(name);
+}
+
+/**
+ * Calculates delta for updating quality property of backstage pass.
+ * @param {itemData} item
+ * @returns {number}
+ */
+function getBackstagePassQualityDelta (item) {
+  const { sellIn } = item;
+
+  if (sellIn < 0) {
+    return 0;
   }
 
-  return items;
-};
+  if (sellIn < 5) {
+    return 3;
+  }
+
+  if (sellIn < 10) {
+    return 2;
+  }
+
+  return 1;
+}
+
+/**
+ * Calculates delta for updating quality property of regular item.
+ * @param {itemData} item
+ * @returns {number}
+ */
+function getRegularItemQualityDelta (item) {
+  const { sellIn } = item;
+
+  let delta = -1;
+
+  if (isAgedBrie(item)) {
+    delta = delta * -1;
+  }
+
+  if (sellIn < 0) {
+    delta = delta * 2;
+  }
+
+  return delta;
+}
+
+/**
+ * Calculates delta for updating quality property of the item.
+ * @param {itemData} item
+ * @returns {number}
+ */
+function getQualityDelta (item) {
+  let delta = isBackstagePass(item)
+    ? getBackstagePassQualityDelta(item)
+    : getRegularItemQualityDelta(item);
+
+  if (isItemConjured(item)) {
+    delta = delta * 2;
+  }
+
+  return delta;
+}
+
+/**
+ * Makes sure that quality is always within allowed range.
+ * @param {number} quality
+ * @returns {number}
+ */
+function applyQualityRangeCap (quality) {
+  if (quality < MIN_QUALITY) {
+    return MIN_QUALITY;
+  }
+
+  if (quality > MAX_QUALITY) {
+    return MAX_QUALITY;
+  }
+
+  return quality;
+}
+
+/**
+ * Updates `quality` property of item.
+ * @param {itemData} item
+ * @returns {itemData}
+ */
+function updateItemQuality (item) {
+  const { quality, sellIn } = item;
+  let newQuality = quality + getQualityDelta(item);
+
+  if (isBackstagePass(item) && (sellIn < 0)) {
+    newQuality = 0;
+  }
+
+  item.quality = applyQualityRangeCap(newQuality);
+
+  return item;
+}
+
+/**
+ * Updates `sellIn` property of item.
+ * @param {itemData} item
+ * @returns {itemData}
+ */
+function updateItemSellIn (item) {
+  const { sellIn } = item;
+  item.sellIn = sellIn - 1;
+  return item;
+}
+
+/**
+ * Updates data of single item.
+ * @param {itemData} item
+ * @returns {itemData}
+ */
+function updateItem (item) {
+  if (!isSulfuras(item)) {
+    updateItemSellIn(item);
+    updateItemQuality(item);
+  }
+  return item;
+}
+
+/**
+ * Updates data of provided list of items.
+ * @param {Array.<itemData>} items
+ * @returns {Array.<itemData>}
+ */
+function updateQuality (items) {
+  return items.map(updateItem);
+}
+
+module.exports = updateQuality;

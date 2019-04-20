@@ -1,16 +1,21 @@
 {
-  "name": "gilded-rose-javascript",
+  "name": "@fczbkk/gilded-rose",
   "private": true,
-  "version": "2.0.0",
+  "version": "1.0.0",
   "main": "gilded-rose.js",
   "description": "Gilded Rose Kata in JavaScript",
-  "repository": "git@github.com:robinpokorny/gilded-rose-javascript.git",
+  "repository": "git@github.com:fczbkk/gilded-rose-javascript.git",
   "author": "Robin Pokorny <me@robinpokorny.com>",
+  "contributors": [
+    "Riki Fridrich <riki@fczbkk.com>"
+  ],
   "scripts": {
-    "test": "jest",
+    "test": "ava",
+    "dev": "ava --watch",
     "validate": "jest --testRegex .validate.js"
   },
   "devDependencies": {
+    "ava": "^1.4.1",
     "jest": "^24.7.1"
   },
   "dependencies": {

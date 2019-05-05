@@ -66,10 +66,10 @@ function isBackstagePass ({ name }) {
  * @returns {number}
  */
 function getBackstagePassQualityDelta (item) {
-  const { sellIn } = item;
+  const { sellIn, quality } = item;
 
   if (sellIn < 0) {
-    return 0;
+    return 0 - quality;
   }
 
   if (sellIn < 5) {
@@ -144,14 +144,9 @@ function applyQualityRangeCap (quality) {
  * @returns {itemData}
  */
 function updateItemQuality (item) {
-  const { quality, sellIn } = item;
-  let newQuality = quality + getQualityDelta(item);
+  const { quality } = item;
 
-  if (isBackstagePass(item) && (sellIn < 0)) {
-    newQuality = 0;
-  }
-
-  item.quality = applyQualityRangeCap(newQuality);
+  item.quality = applyQualityRangeCap(quality + getQualityDelta(item));
 
   return item;
 }
